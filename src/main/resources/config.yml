@@ -1,3 +1,10 @@
+# BetterModel integration: when the BetterModel plugin is installed, cabin .bbmodel files are mirrored into
+# plugins/BetterModel/models (prefix elevator_) so BetterModel builds the one resource pack, and cabins are rendered
+# + animated by BetterModel: animations named "open" / "close" drive the doors, "move" loops while travelling.
+# Set enabled: false to keep the built-in exporter and ItemDisplay cabins.
+bettermodel:
+  enabled: true
+
 # Elevators - configuration. Types live in types.yml, elevator instances in elevators.yml.
 
 pack:

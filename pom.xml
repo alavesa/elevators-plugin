@@ -6,7 +6,7 @@
 
   <groupId>fi.alavesa</groupId>
   <artifactId>elevators</artifactId>
-  <version>0.1.0</version>
+  <version>0.2.0</version>
   <packaging>jar</packaging>
 
   <name>Elevators</name>
@@ -37,6 +37,13 @@
       <artifactId>junit-jupiter</artifactId>
       <version>${junit.version}</version>
       <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>kr.toxicity.model</groupId>
+      <artifactId>bettermodel</artifactId>
+      <version>3.5.0</version>
+      <scope>system</scope>
+      <systemPath>${project.basedir}/libs/bettermodel-3.5.0-paper.jar</systemPath>
     </dependency>
   </dependencies>
 

@@ -57,7 +57,7 @@ public final class ElevatorCommand implements TabExecutor {
                         case "button" -> button(s, tail(a, 1));
                         case "stop" -> { if (need(s, a, 2, "stop <elevator>")) return true; Elevator e = elev(s, a[1]); if (e == null) return true; Floor f = e.emergencyStop(); ok(s, f == null ? "stopped" : "stopping at " + f.name()); }
                         case "pack" -> pack(s);
-                        case "models" -> { List<String> names = plugin.exporter().modelNames(); info(s, names.isEmpty() ? "no .bbmodel files in plugins/Elevators/models/" : "models on disk: " + names); info(s, "last exported: " + plugin.exporter().lastExported()); }
+                        case "models" -> { List<String> names = plugin.exporter().modelNames(); info(s, names.isEmpty() ? "no .bbmodel files in plugins/Elevators/models/" : "models on disk: " + names); info(s, "last exported: " + plugin.exporter().lastExported()); if (plugin.bridge() != null) { StringBuilder b = new StringBuilder(); for (String n : names) b.append(n).append(plugin.bridge().has(n) ? " (BetterModel: loaded as " + plugin.bridge().key(n) + ", animations " + plugin.bridge().animations(n) + ")" : " (BetterModel: NOT loaded yet - see BetterModel's log)").append("; "); info(s, "BetterModel renders the cabins: " + b); } }
                         case "reload" -> { plugin.reloadAll(); ok(s, "reloaded: " + plugin.types().all().size() + " type(s), " + plugin.elevators().all().size() + " elevator(s)"); }
                         default -> help(s);
                     }

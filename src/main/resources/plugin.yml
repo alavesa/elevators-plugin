@@ -2,6 +2,7 @@ name: Elevators
 version: '${project.version}'
 main: fi.alavesa.elevators.ElevatorsPlugin
 api-version: '1.21'
+softdepend: [BetterModel]
 description: Configurable elevators with Blockbench-modelled cabins, in-cabin buttons and a .bbmodel resource-pack exporter.
 author: alavesa
 commands:

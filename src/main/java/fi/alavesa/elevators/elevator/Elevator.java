@@ -47,6 +47,7 @@ public final class Elevator implements ElevatorCore.Port {
     public final Map<String, ButtonDef> buttons = new LinkedHashMap<>();
 
     private ItemDisplay cabin;
+    private kr.toxicity.model.api.tracker.EntityTracker tracker;   // BetterModel cabin (null when BetterModel is not active)
     private boolean doorsOpen;
     private final Map<UUID, Seat> riders = new LinkedHashMap<>();
     private int moveSoundTimer, musicTimer;
@@ -102,12 +103,54 @@ public final class Elevator implements ElevatorCore.Port {
         applyCabinModel(true);
     }
 
+    private org.bukkit.scheduler.BukkitTask bmRetry;
+    /** BetterModel loads its models asynchronously after it enables (and after a /bettermodel reload): poll until ours is there. */
+    private void retryAttachLater(String model) {
+        if (bmRetry != null && !bmRetry.isCancelled()) return;
+        final int[] left = { 90 };   // 90 x 20 ticks = 90 s
+        bmRetry = org.bukkit.Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            var bridge = plugin.bridge();
+            if (bridge == null || cabin == null || !cabin.isValid() || --left[0] < 0) { bmRetry.cancel(); bmRetry = null; return; }
+            if (!bridge.has(model)) return;
+            bmRetry.cancel(); bmRetry = null;
+            applyCabinModel(true);
+        }, 20L, 20L);
+    }
+
+    /** BetterModel renders the cabin: attach (or re-attach) the tracker to the cabin display entity. */
+    private boolean attachTracker(String model) {
+        var bridge = plugin.bridge();
+        if (bridge == null || cabin == null || !cabin.isValid()) return false;
+        if (tracker != null) { bridge.close(tracker); tracker = null; }
+        if (!bridge.has(model)) { retryAttachLater(model); return false; }
+        tracker = bridge.attach(cabin, model, () -> yaw);
+        if (tracker == null) { plugin.getLogger().warning("elevator " + id + ": BetterModel could not attach model '" + model + "' to the cabin"); return false; }
+        plugin.getLogger().info("elevator " + id + ": cabin rendered by BetterModel (model " + model + (bridge.hasAnimation(model, "open") ? ", open/close animations" : ", doors via model-open") + (bridge.hasAnimation(model, "move") ? ", move animation" : "") + ")");
+        cabin.setItemStack(new ItemStack(org.bukkit.Material.AIR));
+        if (doorsOpen && bridge.hasAnimation(model, "open")) bridge.animateHold(tracker, "open");
+        return true;
+    }
+
     private void tag(Entity e, String role) {
         e.getPersistentDataContainer().set(plugin.keyElevator(), PersistentDataType.STRING, id);
         e.getPersistentDataContainer().set(plugin.keyRole(), PersistentDataType.STRING, role);
     }
 
     private void applyCabinModel(boolean force) {
+        var bridge = plugin.bridge();
+        if (bridge != null && !bridge.has(type.model)) retryAttachLater(type.model);   // BetterModel still loading its models: item cabin for now
+        if (bridge != null && bridge.has(type.model)) {
+            // Doors: an "open" / "close" animation in the .bbmodel if the model has them, else the model-open variant.
+            boolean hasOpenAnim = bridge.hasAnimation(type.model, "open");
+            String model = !hasOpenAnim && doorsOpen && !type.modelOpen.isEmpty() && bridge.has(type.modelOpen) ? type.modelOpen : type.model;
+            if (force || tracker == null || !model.equals(lastCabinModel)) { lastCabinModel = model; attachTracker(model); }
+            if (hasOpenAnim && tracker != null && !force) {
+                if (doorsOpen) bridge.animateHold(tracker, "open");
+                else if (bridge.hasAnimation(type.model, "close")) { bridge.stop(tracker, "open"); bridge.animateHold(tracker, "close"); }
+                else bridge.stop(tracker, "open");
+            }
+            return;
+        }
         String model = doorsOpen && !type.modelOpen.isEmpty() ? type.modelOpen : type.model;
         if (!force && model.equals(lastCabinModel)) return;
         lastCabinModel = model;
@@ -125,6 +168,8 @@ public final class Elevator implements ElevatorCore.Port {
     }
 
     public void removeEntities() {
+        if (bmRetry != null) { bmRetry.cancel(); bmRetry = null; }
+        if (tracker != null) { var b = plugin.bridge(); if (b != null) b.close(tracker); tracker = null; }
         if (cabin != null) { cabin.remove(); cabin = null; }
         for (Seat s : riders.values()) { s.stand.eject(); s.stand.remove(); }
         riders.clear();
@@ -175,6 +220,7 @@ public final class Elevator implements ElevatorCore.Port {
 
     @Override
     public void onDepart(Floor from, Floor to) {
+        if (tracker != null && plugin.bridge() != null && plugin.bridge().hasAnimation(type.model, "move")) plugin.bridge().animate(tracker, "move", true, () -> 1f);
         doorsOpen = false;
         applyCabinModel(false);
         board();
@@ -201,6 +247,7 @@ public final class Elevator implements ElevatorCore.Port {
 
     @Override
     public void onArrive(Floor floor) {
+        if (tracker != null && plugin.bridge() != null) plugin.bridge().stop(tracker, "move");
         sound(type.soundArrive);
         Location l = new Location(world, ox, floor.y(), oz, yaw, 0);
         if (cabin != null && cabin.isValid()) cabin.teleport(l);

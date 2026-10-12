@@ -24,6 +24,8 @@ public final class ElevatorsPlugin extends JavaPlugin {
     private ElevatorManager elevators;
     private ButtonManager buttons;
     private PackExporter exporter;
+    private fi.alavesa.elevators.model.ModelBridge bridge;
+    private boolean bmActive;
     private NamespacedKey keyElevator, keyButton, keyRole;
 
     @Override
@@ -36,6 +38,17 @@ public final class ElevatorsPlugin extends JavaPlugin {
         keyRole = new NamespacedKey(this, "role");
         settings = new Settings(getConfig());
         for (String p : settings.problems) getLogger().warning("config.yml: " + p);
+        // BetterModel installed: mirror our cabin models into its folder (it builds the one pack) and let it render + animate.
+        if (fi.alavesa.elevators.model.ModelBridge.installed()) {
+            bridge = new fi.alavesa.elevators.model.ModelBridge(this, "elevator");
+            if (bridge.active()) {
+                try {
+                    int n = bridge.sync(new File(getDataFolder(), "models"));
+                    bmActive = true;
+                    getLogger().info("BetterModel detected: cabins are rendered by BetterModel (" + n + " model file(s) synced to plugins/BetterModel/models, prefix elevator_). The built-in pack exporter is not needed.");
+                } catch (Throwable t) { getLogger().warning("BetterModel sync failed, using the built-in exporter: " + t); }
+            }
+        }
         types = new TypeRegistry(new File(getDataFolder(), "types.yml"), getLogger());
         types.load();
         buttons = new ButtonManager(this);
@@ -50,7 +63,7 @@ public final class ElevatorsPlugin extends JavaPlugin {
         // worlds and other plugins are ready one tick later
         Bukkit.getScheduler().runTask(this, () -> {
             elevators.load();
-            if (settings.exportOnStart) exporter.export(null);
+            if (settings.exportOnStart && !bmActive) exporter.export(null);   // BetterModel builds the pack itself
         });
         Bukkit.getScheduler().runTaskTimer(this, () -> { buttons.tick(); elevators.tick(); }, 1L, 1L);
         getLogger().info("Elevators " + getDescription().getVersion() + " enabled.");
@@ -81,6 +94,8 @@ public final class ElevatorsPlugin extends JavaPlugin {
     public ElevatorManager elevators() { return elevators; }
     public ButtonManager buttons() { return buttons; }
     public PackExporter exporter() { return exporter; }
+    /** The BetterModel bridge when BetterModel renders the cabins, else null. */
+    public fi.alavesa.elevators.model.ModelBridge bridge() { return bmActive ? bridge : null; }
     public NamespacedKey keyElevator() { return keyElevator; }
     public NamespacedKey keyButton() { return keyButton; }
     public NamespacedKey keyRole() { return keyRole; }
