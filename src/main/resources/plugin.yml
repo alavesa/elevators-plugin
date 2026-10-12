@@ -1,0 +1,20 @@
+name: Elevators
+version: '${project.version}'
+main: fi.alavesa.elevators.ElevatorsPlugin
+api-version: '1.21'
+description: Configurable elevators with Blockbench-modelled cabins, in-cabin buttons and a .bbmodel resource-pack exporter.
+author: alavesa
+commands:
+  elevator:
+    description: Elevator commands
+    aliases: [elev, lift]
+    usage: /elevator help
+permissions:
+  elevators.admin:
+    description: Create and manage elevator types, elevators, floors, buttons; export the pack
+    default: op
+    children:
+      elevators.use: true
+  elevators.use:
+    description: Call and ride elevators (a type may require an extra permission)
+    default: true

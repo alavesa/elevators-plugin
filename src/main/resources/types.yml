@@ -1,0 +1,37 @@
+# Elevator types. Edit here or with /elevator type set <id> <key> <value>, then /elevator reload.
+# Model names are files in plugins/Elevators/models/<name>.bbmodel, exported with /elevator pack.
+types:
+  glass:
+    model: glass_cabin          # cabin with doors closed
+    model-open: glass_cabin_open # optional: cabin with doors open (leave empty to reuse 'model')
+    speed: 2.5                  # blocks per second
+    acceleration: 2.0           # blocks per second^2
+    door-time: 80               # ticks the doors stay open on arrival
+    door-close-delay: 10        # ticks until the doors close after a floor is chosen
+    cabin:                      # the box (blocks, centred on the elevator origin) whose players travel
+      width: 3.0
+      depth: 3.0
+      height: 3.0
+    sounds:
+      start: minecraft:block.piston.extend
+      move: minecraft:block.conduit.ambient
+      move-interval: 20
+      arrive: minecraft:block.note_block.bell
+      doors-open: minecraft:block.iron_door.open
+      doors-close: minecraft:block.iron_door.close
+      music: ""                 # e.g. minecraft:music_disc.cat (looped every music-interval ticks)
+      music-interval: 200
+      volume: 1.0
+    permission: ""              # extra permission to ride this type, e.g. elevators.type.glass
+    capacity: 0                 # max riders, 0 = unlimited
+    button-cooldown: 10         # ticks, default for this type's buttons
+    call-cooldown: 20
+  freight:
+    model: freight_cabin
+    speed: 1.5
+    acceleration: 1.0
+    door-time: 120
+    cabin: {width: 5.0, depth: 5.0, height: 4.0}
+    sounds: {start: minecraft:block.anvil.land, arrive: minecraft:block.anvil.place, music: ""}
+    permission: elevators.type.freight
+    capacity: 8
