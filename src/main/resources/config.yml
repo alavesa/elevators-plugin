@@ -4,6 +4,9 @@
 # Set enabled: false to keep the built-in exporter and ItemDisplay cabins.
 bettermodel:
   enabled: true
+  # Extra cabin yaw (degrees) under BetterModel. BetterModel turns every model 180 degrees itself (Blockbench north =
+  # front); the plugin already compensates so cabins face as they did before - set 180 here if one comes out backwards.
+  yaw-offset: 0
 
 # Elevators - configuration. Types live in types.yml, elevator instances in elevators.yml.
 

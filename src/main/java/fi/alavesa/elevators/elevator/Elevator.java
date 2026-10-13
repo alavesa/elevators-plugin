@@ -123,7 +123,7 @@ public final class Elevator implements ElevatorCore.Port {
         if (bridge == null || cabin == null || !cabin.isValid()) return false;
         if (tracker != null) { bridge.close(tracker); tracker = null; }
         if (!bridge.has(model)) { retryAttachLater(model); return false; }
-        tracker = bridge.attach(cabin, model, () -> yaw);
+        tracker = bridge.attach(cabin, model, () -> fi.alavesa.elevators.model.ModelBridge.modelYaw(yaw, bridge.yawOffset()), 1.0);
         if (tracker == null) { plugin.getLogger().warning("elevator " + id + ": BetterModel could not attach model '" + model + "' to the cabin"); return false; }
         plugin.getLogger().info("elevator " + id + ": cabin rendered by BetterModel (model " + model + (bridge.hasAnimation(model, "open") ? ", open/close animations" : ", doors via model-open") + (bridge.hasAnimation(model, "move") ? ", move animation" : "") + ")");
         cabin.setItemStack(new ItemStack(org.bukkit.Material.AIR));
