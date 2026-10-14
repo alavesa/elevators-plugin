@@ -33,6 +33,20 @@ public final class ButtonDef {
 
     public boolean inCabin() { return CABIN.equalsIgnoreCase(space); }
 
+    /** A landing button copied from floor `ref` to floor `to`: same offsets, label and look; a CALL to `ref` becomes a
+     *  CALL to `to`; the id and label get the new floor's name where they contained the old one. */
+    public static ButtonDef cloneForFloor(ButtonDef src, String ref, String to) {
+        String id = src.id.contains(ref.toLowerCase(java.util.Locale.ROOT)) ? src.id.replace(ref.toLowerCase(java.util.Locale.ROOT), to.toLowerCase(java.util.Locale.ROOT)) : src.id + "_" + to.toLowerCase(java.util.Locale.ROOT);
+        ButtonDef b = new ButtonDef(id.replaceAll("[^a-z0-9_-]", "_"));
+        b.action = src.action;
+        b.floor = src.action == ButtonAction.CALL && src.floor.equalsIgnoreCase(ref) ? to : src.floor;
+        b.dx = src.dx; b.dy = src.dy; b.dz = src.dz;
+        b.space = to;
+        b.label = src.label.contains(ref) ? src.label.replace(ref, to) : src.label;
+        b.model = src.model; b.width = src.width; b.height = src.height; b.cooldown = src.cooldown; b.permission = src.permission;
+        return b;
+    }
+
     public int cooldownOr(int typeDefault) { return cooldown < 0 ? typeDefault : cooldown; }
 
     public List<String> validate(Set<String> floorNames) {

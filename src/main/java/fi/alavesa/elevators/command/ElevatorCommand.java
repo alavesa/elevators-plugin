@@ -139,6 +139,7 @@ public final class ElevatorCommand implements TabExecutor {
                 if (!errors.isEmpty()) { err(s, String.join("; ", errors)); return; }
                 if (!plugin.exporter().modelExists(a[2])) info(s, "note: no models/" + a[2] + ".bbmodel yet - add it and run /elevator pack");
                 plugin.types().put(t);
+                if (s instanceof Player pl) lastType.put(pl.getUniqueId(), t.id);
                 ok(s, "type " + id + " created: " + t.describe());
             }
             case "set" -> {
@@ -176,23 +177,49 @@ public final class ElevatorCommand implements TabExecutor {
 
     // ---------------------------------------------------------------- elevators
 
+    /** The type each player used last: /elevator create reuses it, so one configured type serves every shaft. */
+    private final java.util.Map<java.util.UUID, String> lastType = new java.util.HashMap<>();
+
+    /** An existing elevator whose shaft column the player stands in (same world, within 1.5 blocks on x and z). */
+    private Elevator shaftAt(Location l) {
+        for (Elevator e : plugin.elevators().all())
+            if (e.world.equals(l.getWorld()) && Math.abs(e.ox - l.getX()) < 1.5 && Math.abs(e.oz - l.getZ()) < 1.5) return e;
+        return null;
+    }
+
     private void create(CommandSender s, String[] a) {
         Player p = player(s); if (p == null) return;
-        if (a.length < 2) { err(s, "create <id> <type> [firstFloorName]"); return; }
+        if (a.length < 1) { err(s, "create <id> [type] [firstFloorName]   (type = the one you used last, or the only one)"); return; }
         String id = a[0].toLowerCase(Locale.ROOT);
+        // Standing in the shaft of an elevator you already built: this is its next floor, not a new elevator.
+        Elevator shaft = shaftAt(p.getLocation());
+        if (shaft != null) {
+            String fname = a.length > 1 && plugin.types().get(a[1]) == null && Floor.validName(a[1]) ? a[1] : a.length > 2 && Floor.validName(a[2]) ? a[2] : String.valueOf(shaft.core.floors().size() + 1);
+            ok(s, "you are in the shaft of elevator '" + shaft.id + "' - adding floor '" + fname + "' there instead of a new elevator");
+            floor(s, new String[]{"add", shaft.id, fname});
+            return;
+        }
         if (!ElevatorManager.ID.matcher(id).matches()) { err(s, "id must be 1-32 chars of a-z 0-9 _ -"); return; }
         if (plugin.elevators().get(id) != null) { err(s, "elevator '" + id + "' exists"); return; }
-        ElevatorType t = plugin.types().get(a[1]);
-        if (t == null) { err(s, "no type '" + a[1] + "' (types: " + plugin.types().all().stream().map(x -> x.id).toList() + ")"); return; }
+        ElevatorType t = a.length > 1 ? plugin.types().get(a[1]) : null;
+        String first = "1";
+        if (t != null) { if (a.length > 2) first = a[2]; }
+        else {
+            String remembered = lastType.get(p.getUniqueId());
+            if (remembered != null && plugin.types().get(remembered) != null) t = plugin.types().get(remembered);
+            else if (plugin.types().all().size() == 1) t = plugin.types().all().iterator().next();
+            if (t == null) { err(s, "which type? create <id> <type> - types: " + plugin.types().all().stream().map(x -> x.id).toList()); return; }
+            if (a.length > 1) first = a[1];
+        }
+        lastType.put(p.getUniqueId(), t.id);
         Elevator e = plugin.elevators().create(id, t, p.getLocation());
-        String first = a.length > 2 ? a[2] : "1";
         if (Floor.validName(first)) {
             e.core.putFloor(new Floor(first, Math.floor(p.getLocation().getY())));
             e.core.rest(e.core.floor(first));
             plugin.elevators().save();
             e.spawnEntities();
         }
-        ok(s, "elevator " + id + " created at " + (int) e.ox + " " + (int) p.getLocation().getY() + " " + (int) e.oz + " with floor '" + first + "'. Next: /elevator floor add " + id + " <name> at each level, then /elevator button add " + id + " ...");
+        ok(s, "elevator " + id + " (" + t.id + ") created at " + (int) e.ox + " " + (int) p.getLocation().getY() + " " + (int) e.oz + " with floor '" + first + "'. Stand in the same shaft on the next floor and run /elevator create again (or /elevator floor add " + id + " <name>) - its buttons are copied to each new floor.");
         Block under = e.world.getBlockAt((int) Math.floor(e.ox), (int) Math.floor(p.getLocation().getY()) - 1, (int) Math.floor(e.oz));
         if (!under.getType().isSolid()) info(s, "warning: the block under the cabin origin is not solid - riders need a floor to stand on at each level");
     }
@@ -209,12 +236,25 @@ public final class ElevatorCommand implements TabExecutor {
                 else { Player p = player(s); if (p == null) return; y = Math.floor(p.getLocation().getY()); }
                 for (Floor f : e.core.floors()) if (Math.abs(f.y() - y) < 1 && !f.name().equalsIgnoreCase(name)) { err(s, "floor '" + f.name() + "' is already at y " + (int) f.y()); return; }
                 boolean replaced = e.core.floor(name) != null;
+                Floor ref = null;   // the nearest existing floor: its landing buttons are copied to the new floor
+                if (!replaced) for (Floor f : e.core.floors()) if (ref == null || Math.abs(f.y() - y) < Math.abs(ref.y() - y)) ref = f;
                 e.core.putFloor(new Floor(name, y));
                 if (e.core.floors().size() == 1) e.core.rest(e.core.floor(name));
+                int copied = 0;
+                if (ref != null && plugin.getConfig().getBoolean("floors.copy-buttons", true)) {
+                    for (ButtonDef src : new ArrayList<>(e.buttons.values())) {
+                        if (src.inCabin() || !src.space.equalsIgnoreCase(ref.name())) continue;
+                        ButtonDef b = ButtonDef.cloneForFloor(src, ref.name(), name);
+                        if (e.buttons.containsKey(b.id) || !b.validate(ElevatorManager.floorNames(e)).isEmpty()) continue;
+                        e.buttons.put(b.id, b);
+                        plugin.buttons().spawn(e, b);
+                        copied++;
+                    }
+                }
                 plugin.elevators().save();
                 Block under = e.world.getBlockAt((int) Math.floor(e.ox), (int) y - 1, (int) Math.floor(e.oz));
                 Block obst = e.obstructionAt(y);
-                ok(s, (replaced ? "moved" : "added") + " floor '" + name + "' at y " + (int) y + " (" + e.core.floors().size() + " floors)");
+                ok(s, (replaced ? "moved" : "added") + " floor '" + name + "' at y " + (int) y + " (" + e.core.floors().size() + " floors)" + (copied > 0 ? ", copied " + copied + " landing button(s) from floor '" + ref.name() + "'" : ""));
                 if (!under.getType().isSolid()) info(s, "warning: no solid block under the cabin origin at this floor");
                 if (obst != null) info(s, "warning: the cabin volume at this floor contains " + obst.getType().name().toLowerCase() + " at " + obst.getX() + " " + obst.getY() + " " + obst.getZ() + " - the elevator will refuse to travel here");
             }

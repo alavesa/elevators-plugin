@@ -2,6 +2,12 @@
 # plugins/BetterModel/models (prefix elevator_) so BetterModel builds the one resource pack, and cabins are rendered
 # + animated by BetterModel: animations named "open" / "close" drive the doors, "move" loops while travelling.
 # Set enabled: false to keep the built-in exporter and ItemDisplay cabins.
+# Floors: /elevator create reuses the type you used last, and run again while standing in an existing shaft it adds
+# that position as the elevator's next floor. copy-buttons: the landing buttons of the nearest floor (same offsets,
+# labels, models; "call" targets retargeted) are copied to every new floor, so each floor needs no configuration.
+floors:
+  copy-buttons: true
+
 bettermodel:
   enabled: true
   # Extra cabin yaw (degrees) under BetterModel. BetterModel turns every model 180 degrees itself (Blockbench north =
